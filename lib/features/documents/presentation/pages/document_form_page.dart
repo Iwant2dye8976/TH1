@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../../domain/entities/document.dart';
@@ -94,6 +95,29 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
     }
   }
 
+  Future<void> _pickFile() async {
+    try {
+      final file = await FilePicker.pickFile(
+        dialogTitle: 'Chọn tệp tài liệu',
+        type: FileType.any,
+      );
+      if (!mounted || file == null) return;
+      final path = file.path;
+      if (path == null || path.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể lấy đường dẫn của tệp đã chọn.')),
+        );
+        return;
+      }
+      _fileController.text = path;
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể chọn tệp: $error')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -167,10 +191,15 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _fileController,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     labelText: 'Đường dẫn tệp',
                     hintText: 'Ví dụ: /Documents/lecture.pdf',
                     prefixIcon: Icon(Icons.attach_file),
+                    suffixIcon: IconButton(
+                      tooltip: 'Chọn tệp',
+                      onPressed: _pickFile,
+                      icon: Icon(Icons.folder_open),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 14),
@@ -178,15 +207,12 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                   controller: _urlController,
                   keyboardType: TextInputType.url,
                   decoration: const InputDecoration(
-                    labelText: 'URL tài liệu',
+                    labelText: 'URL tài liệu (không bắt buộc)',
                     hintText: 'https://...',
                     prefixIcon: Icon(Icons.link),
                   ),
                   validator: (value) {
                     final url = value?.trim() ?? '';
-                    if (_fileController.text.trim().isEmpty && url.isEmpty) {
-                      return 'Nhập đường dẫn tệp hoặc URL.';
-                    }
                     if (url.isNotEmpty && Uri.tryParse(url)?.hasScheme != true) {
                       return 'URL cần có giao thức, ví dụ https://.';
                     }

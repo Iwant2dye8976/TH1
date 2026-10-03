@@ -92,11 +92,11 @@ void main() {
     await controller.create(
       title: 'New document',
       type: 'lecture',
-      externalUrl: 'https://example.com/notes',
     );
 
     expect(controller.documents, hasLength(1));
     expect(controller.documents.single.id, isNotEmpty);
+    expect(controller.documents.single.externalUrl, isNull);
     controller.dispose();
   });
 }

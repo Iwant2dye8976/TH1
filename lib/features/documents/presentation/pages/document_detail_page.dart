@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_colors.dart';
@@ -36,6 +37,23 @@ class DocumentDetailPage extends StatelessWidget {
     if (confirmed != true || !context.mounted) return;
     await controller.delete(document.id);
     if (context.mounted) Navigator.pop(context);
+  }
+
+  Future<void> _openFile(BuildContext context) async {
+    final path = document.filePath;
+    if (path == null || path.isEmpty) return;
+    try {
+      final result = await OpenFilex.open(path);
+      if (!context.mounted || result.type == ResultType.done) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể mở tệp: ${result.message}')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể mở tệp: $error')),
+      );
+    }
   }
 
   @override
@@ -116,6 +134,12 @@ class DocumentDetailPage extends StatelessWidget {
                   leading: const Icon(Icons.attach_file, color: AppColors.green),
                   title: const Text('Tệp liên quan'),
                   subtitle: SelectableText(document.filePath!),
+                  onTap: () => _openFile(context),
+                  trailing: IconButton(
+                    tooltip: 'Mở tệp',
+                    icon: const Icon(Icons.open_in_new),
+                    onPressed: () => _openFile(context),
+                  ),
                 ),
               if (document.externalUrl != null)
                 ListTile(
