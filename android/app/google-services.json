@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1001404919671",
+    "project_id": "learning-docs-6ceb8",
+    "storage_bucket": "learning-docs-6ceb8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1001404919671:android:d8cc9d5b9a9f8f897fbb72",
+        "android_client_info": {
+          "package_name": "com.tlu.learningdocs"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1001404919671-aup2nom3kpepclh98ob376c8i312ru8s.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAKPA8g9VJR1JTGi-hJJyM1DZWhFBZlSfY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1001404919671-aup2nom3kpepclh98ob376c8i312ru8s.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -297,6 +297,17 @@ flutter pub get
   flutter run
   ```
 
+### Đăng nhập Firebase và đồng bộ Supabase
+1. Trong Firebase Console, bật Google tại **Authentication → Sign-in method**. Thêm SHA-1/SHA-256 của ứng dụng Android và tải `google-services.json` cho package `com.tlu.learningdocs`.
+2. Trong Supabase Dashboard, cấu hình Firebase tại **Authentication → Sign In / Third-Party → Firebase** để Supabase xác minh Firebase ID token.
+3. Chạy lại toàn bộ `supabase_schema.sql` trong Supabase SQL Editor để áp dụng chính sách RLS và trigger mới. Firebase ID token mặc định không có `role`, nên Supabase xếp request vào role `anon`; schema chỉ cho phép role này nếu JWT có đúng Firebase issuer/audience `learning-docs-6ceb8`. Trigger lấy `owner_id` từ Firebase JWT khi tạo tài liệu. Profile chỉ đọc được bởi chính chủ; tra cứu người nhận chia sẻ qua RPC chỉ trả về hồ sơ khớp email. Nếu INSERT tài liệu bị RLS từ chối, ứng dụng dùng RPC chẩn đoán để báo issuer/audience/UID có khớp hay không, không hiển thị token hoặc UID. Không bỏ restrictive policies này hoặc mở rộng truy cập cho `anon` mà không giữ điều kiện issuer/audience.
+4. Schema tạo bucket riêng tư `learning-docs`, giới hạn mỗi tệp ở 50 MiB và thiết lập Storage RLS: người dùng chỉ tải tệp vào thư mục của mình, còn việc đọc dựa trên quyền owner/editor/viewer của tài liệu. Chạy ứng dụng bằng Supabase project URL và publishable/anon key:
+   ```sh
+   flutter run --dart-define=SUPABASE_URL=https://<project-ref>.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=<publishable-key>
+   ```
+
+Có thể dùng `SUPABASE_ANON_KEY` thay cho `SUPABASE_PUBLISHABLE_KEY` với anon key cũ. Hồ sơ được đồng bộ vào `profiles`; metadata tài liệu và quyền chia sẻ được lưu vào `documents` và `document_permissions`. Tệp đính kèm được upload vào bucket riêng tư `learning-docs`; ứng dụng mở tệp bằng signed URL có thời hạn một giờ sau khi kiểm tra quyền đọc.
+
 ### Kiểm tra chất lượng mã nguồn & Kiểm thử
 ```sh
 flutter analyze

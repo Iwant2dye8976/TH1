@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../features/auth/presentation/controllers/auth_controller.dart';
 import '../../features/documents/presentation/controllers/document_controller.dart';
 import '../../features/documents/presentation/pages/document_detail_page.dart';
 import '../../features/documents/presentation/pages/document_form_page.dart';
@@ -17,14 +18,20 @@ abstract final class AppRoutes {
 }
 
 class AppRouter {
-  AppRouter(this.controller);
+  AppRouter(this.controller, {this.authController});
 
   final DocumentController controller;
+  final AuthController? authController;
 
   Route<dynamic> onGenerateRoute(RouteSettings settings) {
     final name = settings.name ?? AppRoutes.home;
     if (name == AppRoutes.home) {
-      return _page(DocumentListPage(controller: controller));
+      return _page(
+        DocumentListPage(
+          controller: controller,
+          authController: authController,
+        ),
+      );
     }
     if (name == AppRoutes.createDocument) {
       return _page(DocumentFormPage(controller: controller));

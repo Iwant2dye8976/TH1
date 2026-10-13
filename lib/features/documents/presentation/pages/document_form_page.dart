@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
+import '../../../../core/errors/user_error_message.dart';
 import '../../domain/entities/document.dart';
 import '../controllers/document_controller.dart';
 
@@ -24,20 +25,43 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
   late TextEditingController _urlController;
   late TextEditingController _tagsController;
   late String _selectedType;
+  PlatformFile? _selectedFile;
+  bool _isSaving = false;
 
   bool get isEditing => widget.document != null;
+
+  String get _selectedFileSizeLabel {
+    final size = _selectedFile?.lengthSync();
+    if (size == null) return 'Dung lượng sẽ được kiểm tra khi tải lên.';
+    return '${(size / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(text: widget.document?.title ?? '');
-    _descriptionController = TextEditingController(text: widget.document?.description ?? '');
-    _authorController = TextEditingController(text: widget.document?.author ?? '');
-    _subjectController = TextEditingController(text: widget.document?.subjectId ?? '');
-    _fileController = TextEditingController(text: widget.document?.filePath ?? '');
-    _urlController = TextEditingController(text: widget.document?.externalUrl ?? '');
-    _tagsController = TextEditingController(text: widget.document?.tags.join(', ') ?? '');
-    _selectedType = DocumentType.fromValue(widget.document?.type ?? 'lecture').value;
+    _titleController = TextEditingController(
+      text: widget.document?.title ?? '',
+    );
+    _descriptionController = TextEditingController(
+      text: widget.document?.description ?? '',
+    );
+    _authorController = TextEditingController(
+      text: widget.document?.author ?? '',
+    );
+    _subjectController = TextEditingController(
+      text: widget.document?.subjectId ?? '',
+    );
+    _fileController = TextEditingController(
+      text: widget.document?.filePath ?? '',
+    );
+    _urlController = TextEditingController(
+      text: widget.document?.externalUrl ?? '',
+    );
+    _tagsController = TextEditingController(
+      text: widget.document?.tags.join(', ') ?? '',
+    );
+    _selectedType = DocumentType.fromValue(widget.document?.type ?? 'lecture')
+        .value;
   }
 
   @override
@@ -53,14 +77,16 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
   }
 
   Future<void> _saveDocument() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (_isSaving || !_formKey.currentState!.validate()) return;
     final tags = _tagsController.text
         .split(',')
         .map((tag) => tag.trim())
         .where((tag) => tag.isNotEmpty)
         .toSet()
         .toList();
+    setState(() => _isSaving = true);
     try {
+      final selectedFileBytes = await _selectedFile?.readAsBytes();
       final document = widget.document;
       if (document == null) {
         await widget.controller.create(
@@ -71,6 +97,8 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
           author: _authorController.text,
           filePath: _fileController.text,
           externalUrl: _urlController.text,
+          uploadFileName: _selectedFile?.name,
+          uploadFileBytes: selectedFileBytes,
           tags: tags,
         );
       } else {
@@ -83,6 +111,8 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
           author: _authorController.text,
           filePath: _fileController.text,
           externalUrl: _urlController.text,
+          uploadFileName: _selectedFile?.name,
+          uploadFileBytes: selectedFileBytes,
           tags: tags,
         );
       }
@@ -90,8 +120,13 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString().replaceFirst('ArgumentError: ', ''))),
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(UserErrorMessage.from(error)),
+        ),
       );
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
@@ -102,18 +137,17 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
         type: FileType.any,
       );
       if (!mounted || file == null) return;
-      final path = file.path;
-      if (path == null || path.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Không thể lấy đường dẫn của tệp đã chọn.')),
-        );
-        return;
-      }
-      _fileController.text = path;
+      setState(() {
+        _selectedFile = file;
+        _fileController.text = file.name;
+      });
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Không thể chọn tệp: $error')),
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text('Không thể chọn tệp: ${UserErrorMessage.from(error)}'),
+        ),
       );
     }
   }
@@ -126,8 +160,14 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
         actions: [
           IconButton(
             tooltip: 'Lưu tài liệu',
-            icon: const Icon(Icons.check),
-            onPressed: () => _saveDocument(),
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.check),
+            onPressed: _isSaving ? null : _saveDocument,
           ),
           const SizedBox(width: 8),
         ],
@@ -172,6 +212,9 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                     labelText: 'Môn học / danh mục',
                     prefixIcon: Icon(Icons.class_outlined),
                   ),
+                  validator: (value) => value != null && value.trim().isEmpty
+                      ? 'Vui lòng nhập môn học hoặc danh mục.'
+                      : null,
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -191,16 +234,26 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _fileController,
+                  readOnly: true,
                   decoration: InputDecoration(
-                    labelText: 'Đường dẫn tệp',
-                    hintText: 'Ví dụ: /Documents/lecture.pdf',
+                    labelText: 'Tệp đính kèm',
+                    hintText: 'Chọn tệp để tải lên Supabase',
                     prefixIcon: Icon(Icons.attach_file),
                     suffixIcon: IconButton(
                       tooltip: 'Chọn tệp',
-                      onPressed: _pickFile,
+                      onPressed: _isSaving ? null : _pickFile,
                       icon: Icon(Icons.folder_open),
                     ),
                   ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _selectedFile != null
+                      ? 'Tệp sẽ được tải lên Supabase khi lưu ($_selectedFileSizeLabel).'
+                      : widget.document?.storagePath != null
+                      ? 'Tệp hiện có được giữ nguyên nếu không chọn tệp mới.'
+                      : 'Tối đa 50 MB cho mỗi tệp.',
+                  style: Theme.of(context).textTheme.bodySmall,
                 ),
                 const SizedBox(height: 14),
                 TextFormField(
@@ -213,7 +266,8 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                   ),
                   validator: (value) {
                     final url = value?.trim() ?? '';
-                    if (url.isNotEmpty && Uri.tryParse(url)?.hasScheme != true) {
+                    if (url.isNotEmpty &&
+                        Uri.tryParse(url)?.hasScheme != true) {
                       return 'URL cần có giao thức, ví dụ https://.';
                     }
                     return null;
@@ -227,6 +281,11 @@ class _DocumentFormPageState extends State<DocumentFormPage> {
                     hintText: 'đại số, ôn thi, tuần 1',
                     prefixIcon: Icon(Icons.sell_outlined),
                   ),
+                  validator: (value) =>
+                      value != null &&
+                          value.split(',').any((tag) => tag.trim().isEmpty)
+                      ? 'Các thẻ không được để trống.'
+                      : null,
                 ),
               ],
             ),

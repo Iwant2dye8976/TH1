@@ -1,13 +1,19 @@
 import 'package:flutter/material.dart';
 
+import '../features/auth/presentation/controllers/auth_controller.dart';
 import '../features/documents/presentation/controllers/document_controller.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
 class App extends StatelessWidget {
-  const App({super.key, required this.controller});
+  const App({
+    super.key,
+    required this.controller,
+    this.authController,
+  });
 
   final DocumentController controller;
+  final AuthController? authController;
 
   @override
   Widget build(BuildContext context) {
@@ -16,7 +22,10 @@ class App extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       initialRoute: AppRoutes.home,
-      onGenerateRoute: AppRouter(controller).onGenerateRoute,
+      onGenerateRoute: AppRouter(
+        controller,
+        authController: authController,
+      ).onGenerateRoute,
     );
   }
 }

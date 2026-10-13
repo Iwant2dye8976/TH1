@@ -2,15 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/router/app_router.dart';
 import '../../../../app/theme/app_colors.dart';
+import '../../../../core/errors/user_error_message.dart';
 import '../../../../core/search/search_query.dart';
+import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../auth/presentation/widgets/user_account_appbar_action.dart';
 import '../../domain/entities/document.dart';
 import '../controllers/document_controller.dart';
 import '../widgets/document_card.dart';
 
 class DocumentListPage extends StatefulWidget {
-  const DocumentListPage({super.key, required this.controller});
+  const DocumentListPage({
+    super.key,
+    required this.controller,
+    this.authController,
+  });
 
   final DocumentController controller;
+  final AuthController? authController;
 
   @override
   State<DocumentListPage> createState() => _DocumentListPageState();
@@ -19,6 +27,55 @@ class DocumentListPage extends StatefulWidget {
 class _DocumentListPageState extends State<DocumentListPage> {
   String _selectedType = 'all';
   String _keyword = '';
+  Object? _lastErrorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_showControllerError);
+    final initialError = widget.controller.errorMessage;
+    _lastErrorMessage = initialError;
+    if (initialError != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && widget.controller.errorMessage == initialError) {
+          _showError(initialError);
+        }
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_showControllerError);
+    super.dispose();
+  }
+
+  void _showControllerError() {
+    final error = widget.controller.errorMessage;
+    if (error == null) {
+      _lastErrorMessage = null;
+      return;
+    }
+    if (error == _lastErrorMessage) return;
+    _lastErrorMessage = error;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && widget.controller.errorMessage == error) {
+        _showError(error);
+      }
+    });
+  }
+
+  void _showError(Object error) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: Theme.of(context).colorScheme.error,
+          content: Text(UserErrorMessage.from(error)),
+        ),
+      );
+  }
 
   void _applyFilters([String? keyword]) {
     if (keyword != null) _keyword = keyword;
@@ -41,7 +98,12 @@ class _DocumentListPageState extends State<DocumentListPage> {
             icon: const Icon(Icons.manage_search),
             onPressed: () => Navigator.pushNamed(context, AppRoutes.search),
           ),
-          const SizedBox(width: 8),
+          if (widget.authController != null)
+            UserAccountAppBarAction(
+              authController: widget.authController!,
+              documentController: widget.controller,
+            ),
+          const SizedBox(width: 4),
         ],
       ),
       body: AnimatedBuilder(
@@ -67,7 +129,7 @@ class _DocumentListPageState extends State<DocumentListPage> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '${widget.controller.documents.length} tài liệu đã lưu',
+                              '${widget.controller.documents.length} tài liệu có quyền truy cập',
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ],
@@ -112,15 +174,7 @@ class _DocumentListPageState extends State<DocumentListPage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  if (widget.controller.errorMessage != null)
-                    Expanded(
-                      child: _MessageState(
-                        icon: Icons.error_outline,
-                        message:
-                            'Không thể tải dữ liệu: ${widget.controller.errorMessage}',
-                      ),
-                    )
-                  else if (widget.controller.isLoading)
+                  if (widget.controller.isLoading)
                     const Expanded(
                       child: Center(child: CircularProgressIndicator()),
                     )
@@ -131,7 +185,7 @@ class _DocumentListPageState extends State<DocumentListPage> {
                             ? Icons.auto_stories_outlined
                             : Icons.search_off,
                         message: widget.controller.documents.isEmpty
-                            ? 'Chưa có tài liệu. Thêm tài liệu đầu tiên để bắt đầu thư viện.'
+                            ? 'Chưa có tài liệu nào trong danh mục này.'
                             : 'Không tìm thấy tài liệu phù hợp.',
                       ),
                     )
@@ -161,8 +215,7 @@ class _DocumentListPageState extends State<DocumentListPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         tooltip: 'Thêm tài liệu',
-        onPressed: () =>
-            Navigator.pushNamed(context, AppRoutes.createDocument),
+        onPressed: () => Navigator.pushNamed(context, AppRoutes.createDocument),
         icon: const Icon(Icons.add),
         label: const Text('Thêm tài liệu'),
       ),
@@ -178,16 +231,16 @@ class _MessageState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 38, color: AppColors.mutedInk),
-            const SizedBox(height: 12),
-            Text(message, textAlign: TextAlign.center),
-          ],
-        ),
+    child: Padding(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 38, color: AppColors.mutedInk),
+          const SizedBox(height: 12),
+          Text(message, textAlign: TextAlign.center),
+        ],
       ),
-    );
+    ),
+  );
 }

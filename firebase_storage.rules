@@ -1,0 +1,50 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidFileSize() {
+      // Giới hạn dung lượng file tối đa 50MB (50 * 1024 * 1024 bytes)
+      return request.resource.size < 50 * 1024 * 1024;
+    }
+
+    function isValidContentType() {
+      return request.resource.contentType.matches('application/pdf')
+          || request.resource.contentType.matches('application/msword')
+          || request.resource.contentType.matches('application/vnd.openxmlformats-officedocument.*')
+          || request.resource.contentType.matches('image/.*')
+          || request.resource.contentType.matches('text/.*')
+          || request.resource.contentType.matches('application/zip');
+    }
+
+    // Cấu trúc lưu trữ: documents/{ownerId}/{documentId}/{fileName}
+    match /documents/{ownerId}/{documentId}/{fileName} {
+      
+      // Người dùng đã xác thực đều có thể đọc/tải tài liệu học tập
+      // (Việc phân quyền xem tài liệu cụ thể được kiểm soát ở mức metadata database Supabase RLS)
+      allow read: if isAuthenticated();
+
+      // Chỉ chính chủ tài khoản mới được upload file vào thư mục mang UID của mình
+      allow create: if isOwner(ownerId) 
+                    && isValidFileSize()
+                    && isValidContentType();
+
+      // Chỉ chính chủ mới có quyền cập nhật file
+      allow update: if isOwner(ownerId) 
+                    && isValidFileSize()
+                    && isValidContentType();
+
+      // Chỉ chính chủ mới có quyền xóa file vật lý
+      allow delete: if isOwner(ownerId);
+    }
+  }
+}
+
